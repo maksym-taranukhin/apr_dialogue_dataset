@@ -1,0 +1,2 @@
+blender_90M: "--m blender_90M --max-tokens 40 --model-name blender_90M"
+gpt3: --m gpt3 --openai-api-key ${oc.env:OPENAI_API_KEY} --max-tokens 40 --model-name gpt-3.5-turbo-instruct
