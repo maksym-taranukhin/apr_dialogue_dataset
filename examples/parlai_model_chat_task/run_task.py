@@ -53,6 +53,7 @@ def main(operator: "Operator", cfg: DictConfig) -> None:
         "turn_timeout": cfg.turn_timeout,
         "model_name": cfg.model_name,
         "model_params": cfg.model_params,
+        "send_task_data": True,
     }
 
     custom_bundle_path = cfg.mephisto.blueprint.get("custom_source_bundle", None)
@@ -61,7 +62,6 @@ def main(operator: "Operator", cfg: DictConfig) -> None:
             "Must build the custom bundle with `npm install; npm run dev` from within "
             f"the {cfg.task_dir}/webapp directory in order to demo a custom bundle "
         )
-        world_opt["send_task_data"] = True
 
     shared_state = SharedParlAITaskState(world_opt=world_opt, onboarding_world_opt=world_opt)
 

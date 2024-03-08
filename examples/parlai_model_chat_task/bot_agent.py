@@ -13,7 +13,6 @@ from parlai.core.agents import create_agent
 from parlai.core.message import Message
 from parlai.core.params import ParlaiParser
 from examples.model_chat.constants import AGENT_1
-from parlai.utils.strings import normalize_reply
 
 
 class TurkLikeAgent:
@@ -37,14 +36,6 @@ class TurkLikeAgent:
         self.disconnected = False
         self.hit_is_expired = False
 
-    # @property
-    # def agent_id(self):
-    #     return self.model_agent.agent_id
-
-    # @agent_id.setter
-    # def agent_id(self, value):
-    #     self.model_agent.agent_id = value
-
     def act(self, timeout=None):
         _ = timeout  # The model doesn't care about the timeout
         if self.semaphore:
@@ -52,42 +43,23 @@ class TurkLikeAgent:
                 act_out = self.model_agent.act()
         else:
             act_out = self.model_agent.act()
-        act_out = Message(act_out)#.json_safe_payload()
+        act_out = Message(act_out)
 
-        # if 'dict_lower' in self.opt and not self.opt['dict_lower']:
-        #     # model is cased so we don't want to normalize the reply like below
-        #     final_message_text = act_out['text']
-        # else:
-        #     final_message_text = normalize_reply(act_out['text'])
-
-        # act_out['text'] = final_message_text
         assert ('episode_done' not in act_out) or (not act_out['episode_done'])
         self.turn_idx += 1
-        # return {**act_out, 'episode_done': False}
-        return act_out
+        return Message(act_out)
 
     def observe(self, observation, increment_turn: bool = True):
         """
         Need to protect the observe also with a semaphore for composed models where an
         act() may be called within an observe()
         """
-        logging.info(
-            f'{self.__class__.__name__}: In observe() before semaphore, self.turn_idx is {self.turn_idx} and observation is {observation}'
-        )
         new_ob = copy.deepcopy(observation)
         if self.semaphore:
             with self.semaphore:
                 self.model_agent.observe(new_ob)
         else:
             self.model_agent.observe(new_ob)
-        if 'text' not in new_ob:
-            logging.warning(
-                f'{self.__class__.__name__}: In observe() AFTER semaphore, self.turn_idx: {self.turn_idx}, and observation is missing a "text" field: {new_ob}'
-            )
-        else:
-            logging.info(
-                f'{self.__class__.__name__}: In observe() AFTER semaphore, self.turn_idx: {self.turn_idx}, observation["text"]: {new_ob["text"]}'
-            )
 
         if increment_turn:
             self.turn_idx += 1
@@ -100,7 +72,7 @@ class TurkLikeAgent:
 
     @staticmethod
     def get_bot_agents(
-        args: DictConfig, model_opts: Dict[str, str], no_cuda=False
+        args: DictConfig, model_opts: Dict[str, str]
     ) -> Dict[str, dict]:
         """
         Return shared bot agents.
@@ -109,23 +81,9 @@ class TurkLikeAgent:
         whose keys are model names and whose values are strings that specify model
         params (i.e. `--model image_seq2seq`).
         """
-
-        # Set up overrides
-        # model_overrides = {'model_parallel': args.blueprint.task_model_parallel}
-        # if no_cuda:
-        #     # If we load many models at once, we have to keep it on CPU
-        #     model_overrides['no_cuda'] = no_cuda
-        # else:
-        #     logging.warning(
-        #         'WARNING: MTurk task has no_cuda FALSE. Models will run on GPU. Will '
-        #         'not work if loading many models at once.'
-        #     )
-
-        # Convert opt strings to Opt objects
         processed_opts = {}
         for name, opt_string in model_opts.items():
             parser = ParlaiParser(True, True)
-            # parser.set_params(**model_overrides)
             processed_opts[name] = parser.parse_args(opt_string.split())
 
         # Load and share all model agents

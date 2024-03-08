@@ -1,0 +1,8 @@
+#ui-container {
+    display: block;
+}
+
+.side-pane {
+    padding: 5px;
+    overflow: auto;
+}

@@ -5,11 +5,11 @@
  */
 
 import React from "react";
-import "bootstrap-chat/styles.css";
 import { ChatApp, DefaultTaskDescription, INPUT_MODE } from "bootstrap-chat";
 import RenderChatMessage from "./RenderChatMessage";
 import CustomTextResponse from "./CustomTextResponse";
 import StatementList from "./StatementList";
+
 
 function MainApp() {
   const [messages, setMessages] = React.useState([]);
@@ -21,11 +21,15 @@ function MainApp() {
   );
 
   const lastMessageAnnotation = chatAnnotations[messages.length - 1];
+  const [documents, setDocuments] = React.useState([]);
 
   return (
     <ChatApp
       onMessagesChange={(messages) => {
         setMessages(messages);
+        console.log("Messages changed: ", messages);
+        // save documents from the last message
+        setDocuments(messages[messages.length - 1]?.task_data?.retrieved_documents || []);
       }}
       /*
         You can also use renderTextResponse below, which allows you
@@ -80,44 +84,7 @@ function MainApp() {
         />
       )}
       renderSidePane={({ mephistoContext: { taskConfig } }) => (
-
-        // show a list of suggested responses
-        // <div>
-        //   <h3>Suggested Responses</h3>
-        //   <ul>
-        //     <li>I'm sorry, I don't understand.</li>
-        //     <li>Can you please rephrase that?</li>
-        //     <li>I'm not sure what you mean.</li>
-        //     <li>I'm not sure how to respond to that.</li>
-        //   </ul>
-        // </div>
-
-
-        // show a list of suggested responses
-        // <StatementList>
-        //   {[
-        //     "I'm sorry, I don't understand.",
-        //     "Can you please rephrase that?",
-        //     "I'm not sure what you mean.",
-        //     "I'm not sure how to respond to that.",
-
-        //   ]}
-        // </StatementList>
-
-        <DefaultTaskDescription
-          chatTitle={taskConfig.chat_title}
-          taskDescriptionHtml={taskConfig.task_description}
-        >
-          <div>
-            <h3>Suggested Responses</h3>
-            <ul>
-              <li>I'm sorry, I don't understand.</li>
-              <li>Can you please rephrase that?</li>
-              <li>I'm not sure what you mean.</li>
-              <li>I'm not sure how to respond to that.</li>
-            </ul>
-          </div>
-        </DefaultTaskDescription>
+        <StatementList statements={documents} />
       )}
     />
   );

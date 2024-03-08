@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Any, Dict, List, Optional, Tuple
+import random
 
 from parlai.crowdsourcing.utils.worlds import CrowdOnboardWorld, CrowdTaskWorld
 from parlai.core.agents import create_agent_from_shared
@@ -48,6 +49,7 @@ class MultiAgentDialogWorld(CrowdTaskWorld):
         self.current_turns = 0
         self.send_task_data = opt.get("send_task_data", False)
         self.opt = opt
+        self.retrived_documents = []
         for idx, agent in enumerate(self.agents):
             agent.agent_id = f"Speaker {idx + 1}"
 
@@ -63,9 +65,24 @@ class MultiAgentDialogWorld(CrowdTaskWorld):
             try:
                 acts[index] = agent.act(timeout=self.opt["turn_timeout"])
                 if self.send_task_data:
+
+                    # if the agent is a bot also retrive documents and send them
+                    if isinstance(agent, TurkLikeAgent):
+                        # get mock documents by generation 5 random documents
+                        self.documents = [
+                            {
+                                "id": i,
+                                "title": f"Document {i}",
+                                "text": f"Text {i}",
+                                "score": random.random(),
+                            }
+                            for i in range(5)
+                        ]
+
                     acts[index].force_set(
                         "task_data",
                         {
+                            "retrieved_documents": self.documents,
                             "last_acting_agent": agent.agent_id,
                             "current_dialogue_turn": self.current_turns,
                             "utterance_count": self.current_turns + index,
@@ -73,11 +90,14 @@ class MultiAgentDialogWorld(CrowdTaskWorld):
                     )
             except TypeError:
                 acts[index] = agent.act()  # not MTurkAgent
+
             if acts[index]["episode_done"]:
                 self.episodeDone = True
+
             for other_agent in self.agents:
                 if other_agent != agent:
                     other_agent.observe(validate(acts[index]))
+
         if self.current_turns >= self.max_turns:
             self.episodeDone = True
             for agent in self.agents:
