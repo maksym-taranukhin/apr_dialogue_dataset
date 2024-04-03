@@ -6,6 +6,7 @@
 
 import copy
 from typing import Dict
+import shlex
 
 from omegaconf import DictConfig
 import parlai.utils.logging as logging
@@ -28,6 +29,7 @@ class TurkLikeAgent:
         self.turn_idx = 0
         self.semaphore = semaphore
         self.worker_id = model_name
+        self.agent_id = model_name
         self.hit_id = 'none'
         self.assignment_id = 'none'
         self.some_agent_disconnected = False
@@ -84,7 +86,7 @@ class TurkLikeAgent:
         processed_opts = {}
         for name, opt_string in model_opts.items():
             parser = ParlaiParser(True, True)
-            processed_opts[name] = parser.parse_args(opt_string.split())
+            processed_opts[name] = parser.parse_args(shlex.split(opt_string))
 
         # Load and share all model agents
         logging.info(

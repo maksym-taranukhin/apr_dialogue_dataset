@@ -14,16 +14,25 @@ mephisto:
     task_description_file: ${task_dir}/task_description.html
     num_conversations: 2
   task:
-    task_name: parlai-chat-example
-    task_title: "Test ParlAI Chat Task"
+    task_name: air_passenger_rights_assistance
+    task_title: Air Passenger Rights Assistance
     task_description: >
-      This is a simple chat between two people
-      used to demonstrate the functionalities around using Mephisto
-      for ParlAI tasks.
+      This is a chat between an air passenger and an air passenger rights assistant.
+
+      You are the air passenger rights assistant. Your goal is to help the air passenger understand their rights and assist them in resolving their issue.
     task_reward: 0.3
     task_tags: "dynamic,chat,testing"
-    # We expect to be able to handle 25 concurrent conversations without issue
-    max_num_concurrent_units: 2 # 25 convos * 2 people per
+    max_num_concurrent_units: 1
 
 model_name: gpt3
-model_params: "--m gpt3 --openai-api-key ${oc.env:OPENAI_API_KEY} --max-tokens 40 --model-name gpt-3.5-turbo-instruct"
+model_params: |
+  --m gpt3
+  --openai-api-key ${oc.env:OPENAI_API_KEY}
+  --temperature 0.5
+  --max-tokens 40
+  --stop-sequence "
+  "
+  --model-name gpt-3.5-turbo-instruct
+  --init-prompt "You are an air passenger. You are chatting with an air passenger rights assistant. You need to understand your rights and resolve your issue via providing the necessary information to the assistant and asking questions. Generate an initial or follow-up user input.
+
+  User: "

@@ -1,47 +1,32 @@
 import React from "react";
-import { FormGroup, Radio } from "react-bootstrap";
+import RegenerateButton from './RegenerateButton';
 
-function ChatMessage({ isSelf, idx, agentName, message = "", onRadioChange }) {
-    const floatToSide = isSelf ? "right" : "left";
-    const alertStyle = isSelf ? "alert-info" : "alert-warning";
+function ChatMessage({ isSelf, agentName, message = "", isLastMessage, onRegenerate }) {
+    const [isButtonActive, setIsButtonActive] = React.useState(true);
 
-    const handleChange = (e) => {
-        onRadioChange(e.currentTarget.value);
+    const handleRegenerate = (reason = "") => {
+        setIsButtonActive(false);
+        try { onRegenerate(reason)} catch (error) {
+            console.error("Regeneration failed:", error);
+            setIsButtonActive(true);
+        }
     };
 
+    // Conditional class appending based on isSelf
+    const messageStyleClass = `message-style ${isSelf ? '' : 'opponent'}`;
+    const agentNameClass = `agent-name ${isSelf ? '' : 'opponent'}`;
+    const messageContainerClass = `message-container ${isSelf ? '' : 'opponent'}`;
+
     return (
-        <div className="row" style={{ marginLeft: "0", marginRight: "0" }}>
-            <div
-                className={"alert message " + alertStyle}
-                role="alert"
-                style={{ float: floatToSide }}
-            >
-                <span style={{ fontSize: "16px", whiteSpace: "pre-wrap" }}>
-                    <b>{agentName}</b>: {message}
-                </span>
-                {isSelf ? null : (
-                    <FormGroup>
-                        <Radio
-                            name={"radio" + idx}
-                            value={"The message is inconsistent with the conversation."}
-                            inline
-                            onChange={handleChange}
-                        >
-                            The message is inconsistent with the conversation.
-                        </Radio>{" "}
-                        <Radio
-                            name={"radio" + idx}
-                            value={"The message contains factual errors."}
-                            inline
-                            onChange={handleChange}
-                        >
-                            The message contains factual errors.
-                        </Radio>
-                    </FormGroup>
-                )}
+        <div style={{ display: 'flex', justifyContent: isSelf ? 'flex-end' : 'flex-start', width: '100%', padding: '5px 0' }}>
+            <div style={{ width: '100%' }} className={!isButtonActive ? 'regenerating-message' : ''}>
+                <div className={agentNameClass}>{agentName}</div>
+                <div className={messageContainerClass}>
+                    <div className={messageStyleClass}>{message}</div>
+                    {!isSelf && isLastMessage && <RegenerateButton onClick={handleRegenerate} active={isButtonActive} />}
+                </div>
             </div>
         </div>
     );
 }
-
 export default ChatMessage;

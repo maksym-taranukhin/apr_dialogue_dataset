@@ -7,12 +7,10 @@ function CustomTextResponse({
     isLastMessageAnnotated,
     lastMessageAnnotation,
 }) {
-    const [textValue, setTextValue] = React.useState(
-        !lastMessageAnnotation ? "" : lastMessageAnnotation + " - "
-    );
+    const [textValue, setTextValue] = React.useState("");
     const [sending, setSending] = React.useState(false);
 
-    const annotationNeeded = active && !isLastMessageAnnotated;
+    // const annotationNeeded = active && !isLastMessageAnnotated;
     active = active && isLastMessageAnnotated;
 
     const inputRef = React.useRef();
@@ -23,15 +21,21 @@ function CustomTextResponse({
         }
     }, [active]);
 
-    const tryMessageSend = React.useCallback(() => {
-        if (textValue !== "" && active && !sending) {
+    const tryMessageSend = React.useCallback((regenerate = false) => {
+        let messageToSend = textValue;
+        if (regenerate && lastMessageAnnotation) {
+            messageToSend = `REGENERATE: ${lastMessageAnnotation}`;
+            setTextValue(""); // Clearing the text field
+        }
+
+        if (messageToSend !== "" && !sending) {
             setSending(true);
-            onMessageSend({ text: textValue, task_data: {} }).then(() => {
-                setTextValue("");
+            onMessageSend({ text: messageToSend, task_data: {} }).then(() => {
                 setSending(false);
+                setTextValue(""); // Clearing the text field
             });
         }
-    }, [textValue, active, sending, onMessageSend]);
+    }, [textValue, active, sending, onMessageSend, lastMessageAnnotation]);
 
     const handleKeyPress = React.useCallback(
         (e) => {
@@ -47,6 +51,15 @@ function CustomTextResponse({
     return (
         <div className="response-type-module">
             <div className="response-bar">
+
+                <Button
+                    className="btn btn-warning"
+                    id="id_regenerate_msg_button"
+                    onClick={() => tryMessageSend(true)}
+                    disabled={sending || !isLastMessageAnnotated}
+                >
+                    Regenerate
+                </Button>
                 <FormControl
                     type="text"
                     className="response-text-input"
@@ -54,19 +67,15 @@ function CustomTextResponse({
                         inputRef.current = ref;
                     }}
                     value={textValue}
-                    placeholder={
-                        annotationNeeded
-                            ? "Please annotate the last message before you can continue"
-                            : "Enter your message here..."
-                    }
+                    placeholder={"Enter your response here..."}
                     onKeyPress={(e) => handleKeyPress(e)}
                     onChange={(e) => setTextValue(e.target.value)}
-                    disabled={!active || sending}
+                    disabled={sending}
                 />
                 <Button
                     className="btn btn-primary submit-response"
                     id="id_send_msg_button"
-                    disabled={textValue === "" || !active || sending}
+                    disabled={textValue === "" || sending}
                     onClick={() => tryMessageSend()}
                 >
                     Send

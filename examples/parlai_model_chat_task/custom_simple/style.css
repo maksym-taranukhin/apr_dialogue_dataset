@@ -6,3 +6,47 @@
     padding: 5px;
     overflow: auto;
 }
+
+/* ChatMessage.css */
+
+.message-style {
+    border-radius: 15px;
+    padding: 10px;
+    margin: 0;
+    background-color: DodgerBlue;
+    color: white;
+    max-width: 80%;
+    word-wrap: break-word;
+    display: inline-block;
+    vertical-align: top;
+}
+
+.message-style.opponent {
+    background-color: #d3d3d3;
+    color: black;
+}
+
+.agent-name {
+    font-weight: bold;
+    display: block;
+    text-align: right;
+}
+
+.agent-name.opponent {
+    text-align: left;
+}
+
+.message-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    max-width: 100%;
+}
+
+.message-container.opponent {
+    justify-content: flex-start;
+}
+
+.regenerating-message {
+    opacity: 0.5;
+}

@@ -4,15 +4,39 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-import random
 
-from parlai.crowdsourcing.utils.worlds import CrowdOnboardWorld, CrowdTaskWorld
+import pandas as pd
+from joblib import Parallel, delayed
+from langchain_community.document_loaders import DataFrameLoader
+from langchain_community.embeddings import FakeEmbeddings, HuggingFaceBgeEmbeddings
+from langchain_community.vectorstores import FAISS
 from parlai.core.agents import create_agent_from_shared
 from parlai.core.worlds import validate
-from joblib import Parallel, delayed
+from parlai.crowdsourcing.utils.worlds import CrowdOnboardWorld, CrowdTaskWorld
 
 from examples.parlai_model_chat_task.bot_agent import TurkLikeAgent
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv()
+
+DATA_DIR = find_dotenv().replace(".env", "") / Path(os.getenv("DATA_DIR", "data"))
+KB_PATH = DATA_DIR / "kb" / "docs.csv"
+df = pd.read_csv(KB_PATH).fillna("")
+KB_DOCS = DataFrameLoader(df, page_content_column="text").load()
+KB_DOCS_NUM = len(KB_DOCS)
+
+MODEL_NAME = "BAAI/bge-small-en"
+MODEL_KWARGS = {"device": "cpu"}
+ENCODE_KWARGS = {"normalize_embeddings": True}
+embeddings = HuggingFaceBgeEmbeddings(
+    model_name=MODEL_NAME, model_kwargs=MODEL_KWARGS, encode_kwargs=ENCODE_KWARGS
+)
+
+db = FAISS.from_documents(KB_DOCS, embeddings)
+
 
 class MultiAgentDialogOnboardWorld(CrowdOnboardWorld):
     def __init__(self, opt, agent):
@@ -45,13 +69,11 @@ class MultiAgentDialogWorld(CrowdTaskWorld):
         self.agents = agents
         self.acts = [None] * len(agents)
         self.episodeDone = False
-        self.max_turns = opt.get("max_turns", 2)
+        self.max_turns = opt.get("max_turns", 4)
         self.current_turns = 0
         self.send_task_data = opt.get("send_task_data", False)
         self.opt = opt
         self.retrived_documents = []
-        for idx, agent in enumerate(self.agents):
-            agent.agent_id = f"Speaker {idx + 1}"
 
     def parley(self):
         """
@@ -68,16 +90,16 @@ class MultiAgentDialogWorld(CrowdTaskWorld):
 
                     # if the agent is a bot also retrive documents and send them
                     if isinstance(agent, TurkLikeAgent):
-                        # get mock documents by generation 5 random documents
-                        self.documents = [
-                            {
-                                "id": i,
-                                "title": f"Document {i}",
-                                "text": f"Text {i}",
-                                "score": random.random(),
-                            }
-                            for i in range(5)
-                        ]
+                        dialogue_history = agent.model_agent.history.gpt3Agent.turns
+                        self.documents = self.retrive_documents(dialogue_history)
+                    # Handle user regeneration request.
+                    elif (
+                        "task_data" in acts[index]
+                        and "messageToSend" in acts[index]["task_data"]
+                        and acts[index]["task_data"]["messageToSend"].startswith("REGENERATE:")
+                    ):
+                        self.handle_regeneration(agent)
+                        return
 
                     acts[index].force_set(
                         "task_data",
@@ -100,41 +122,20 @@ class MultiAgentDialogWorld(CrowdTaskWorld):
 
         if self.current_turns >= self.max_turns:
             self.episodeDone = True
-            for agent in self.agents:
-                agent.observe(
-                    {
-                        "id": "Coordinator",
-                        "text": "Please fill out the form to complete the chat:",
-                        "task_data": {
-                            "respond_with_form": [
-                                {
-                                    "type": "choices",
-                                    "question": "How much did you enjoy talking to this user?",
-                                    "choices": [
-                                        "Not at all",
-                                        "A little",
-                                        "Somewhat",
-                                        "A lot",
-                                    ],
-                                },
-                                {
-                                    "type": "choices",
-                                    "question": "Do you think this user is a bot or a human?",
-                                    "choices": [
-                                        "Definitely a bot",
-                                        "Probably a bot",
-                                        "Probably a human",
-                                        "Definitely a human",
-                                    ],
-                                },
-                                {"type": "text", "question": "Enter any comment here"},
-                            ]
-                        },
-                    }
-                )
-                agent.act()  # Request a response
-            for agent in self.agents:  # Ensure you get the response
-                form_result = agent.act(timeout=self.opt["turn_timeout"])
+
+    def handle_regeneration(self, agent):
+        """
+        Handle the logic for regenerating a message in response to a user request.
+        """
+        # Find the last message in the bot's dialogue history and remove it.
+        for agent in self.agents:
+            if isinstance(agent, TurkLikeAgent):
+                history = agent.model_agent.history.gpt3Agent.turns.split("\n")[:-1]
+                agent.model_agent.history.gpt3Agent.turns = "\n".join(history)
+                
+                # Roll back the turn count by 2 to account for the bot's last message and the user's request.
+                self.current_turns -= 1
+                self.parley()
 
     def prep_save_data(self, agent):
         """Process and return any additional data from this world you may want to store"""
@@ -160,6 +161,17 @@ class MultiAgentDialogWorld(CrowdTaskWorld):
             delayed(shutdown_agent)(agent) for agent in self.agents
         )
 
+    def retrive_documents(self, query):
+        return [
+            {
+                "id": i,
+                "text": d.page_content,
+                "score": float(score),
+                **d.metadata,
+            }
+            for i, (d, score) in enumerate(db.similarity_search_with_score(query, k=KB_DOCS_NUM))
+        ]
+
 
 def get_bot_worker(opt: Dict[str, Any]) -> TurkLikeAgent:
     """
@@ -167,8 +179,11 @@ def get_bot_worker(opt: Dict[str, Any]) -> TurkLikeAgent:
     Agent behaves like a crowdsource worker but actually wraps around a dialogue model.
     """
     num_turns = opt["num_turns"]
-    bot_agent = TurkLikeAgent.get_bot_agents(args=opt, model_opts={opt['model_name']: opt["model_params"]})
+    bot_agent = TurkLikeAgent.get_bot_agents(
+        args=opt, model_opts={opt["model_name"]: opt["model_params"]}
+    )
     model_agent = create_agent_from_shared(bot_agent[opt["model_name"]])
+    model_agent.id = "User"
 
     bot_worker = TurkLikeAgent(
         opt,
@@ -178,14 +193,16 @@ def get_bot_worker(opt: Dict[str, Any]) -> TurkLikeAgent:
         # semaphore=semaphore,
     )
 
-    message = {
-        "id": "System",
-        "episode_done": False,
-        "text": "You are an air passenger. You are chatting with a customer service agent."
-    }
+    bot_worker.agent_id = "User"
 
-    # The bot seeing its persona does not count as a "turn"
-    bot_worker.observe(validate(message), increment_turn=False)
+    # message = {
+    #     "id": "System",
+    #     "episode_done": False,
+    #     "text": "You are an air passenger. You are chatting with a customer service agent."
+    # }
+
+    # # The bot seeing its persona does not count as a "turn"
+    # bot_worker.observe(validate(message), increment_turn=False)
 
     return bot_worker
 
@@ -202,10 +219,15 @@ def validate_onboarding(data):
 
 def make_world(opt, agents):
     bot_worker = get_bot_worker(opt=opt)
+
+    if len(agents) == 1:
+        agents[0].agent_id = "Agent"
+    else:
+        for idx, agent in enumerate(agents):
+            agent.agent_id = f"Agent {idx + 1}"
+
     _agents = [bot_worker] + agents
-    return MultiAgentDialogWorld(
-        opt=opt,
-        agents=_agents)
+    return MultiAgentDialogWorld(opt=opt, agents=_agents)
 
 
 def get_world_params():

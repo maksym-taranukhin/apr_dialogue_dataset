@@ -3,18 +3,23 @@ import ChatMessage from "./ChatMessage";
 
 function RenderChatMessage({
     message,
+    isLastMessage,
     mephistoContext,
     appContext,
-    idx,
-    onRadioChange,
+    onRegenerate
 }) {
     const { agentId } = mephistoContext;
     const { currentAgentNames } = appContext.taskContext;
 
+    // Check if message.text is empty or not defined
+    if (!message.text) {
+        // Return null or an alternative component to avoid rendering
+        return null;
+    }
+
     return (
         <div>
             <ChatMessage
-                idx={idx}
                 isSelf={message.id === agentId || message.id in currentAgentNames}
                 agentName={
                     message.id in currentAgentNames
@@ -22,9 +27,10 @@ function RenderChatMessage({
                         : message.id
                 }
                 message={message.text}
-                taskData={message.task_data}
-                messageId={message.update_id}
-                onRadioChange={onRadioChange}
+                isLastMessage={isLastMessage}
+                onRegenerate={onRegenerate}
+                // taskData={message.task_data}
+                // messageId={message.update_id}
             />
         </div>
     );
