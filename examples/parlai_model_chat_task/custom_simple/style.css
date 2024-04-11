@@ -50,3 +50,45 @@
 .regenerating-message {
     opacity: 0.5;
 }
+
+.resizable-editor-container {
+    /* Allows the element to be resized both horizontally and vertically */
+    resize: vertical;
+    /* Required for resize to work; change as needed */
+    overflow: hidden;
+    /* Optional: just for visual clarity */
+    border: 1px solid #ccc;
+    /* Optional: limits resizing */
+    max-height: 100%;
+    /* Optional: if you want rounded corners */
+    border-radius: 10px;
+}
+
+.response-text-input {
+    height: 100%;
+    float: left;
+    font-size: 16px;
+    width: 100%;
+}
+
+.response-text-input .DraftEditor-root {
+    height: 100%;
+    padding: 10px;
+    border: 1px solid transparent;
+    transition: border-color 0.3s ease;
+    background-color: #f8f9fa;
+    /* Adjust this value to control the roundness */
+    border-radius: 10px;
+    /* Example shadow */
+    box-shadow: 0px 40px 6px rgba(0, 0, 0, 1);
+}
+
+.response-text-input .DraftEditor-root.focus {
+    border-color: #aad3ff;
+    /* Transition to a visible color on focus */
+}
+
+.response-text-input.focus .DraftEditor-root {
+    border-color: #aad3ff;
+    /* Transition to a visible color on focus */
+}
