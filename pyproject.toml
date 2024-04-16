@@ -93,6 +93,7 @@ unstructured = "^0.12.5"
 langchain = "^0.1.11"
 sentence-transformers = "^2.5.1"
 faiss-gpu = "^1.7.2"
+langchain-experimental = "^0.0.57"
 
 [tool.poetry.extras]
 # Commented are currently non-optional
