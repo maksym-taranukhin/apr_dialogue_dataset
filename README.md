@@ -29,7 +29,7 @@ The `config.yml` file located in the `configs` directory contains the initial UR
 - `scraper.py`: Contains functions to fetch and clean HTML content, converting it to markdown.
 - `text_processing.py`: Contains functions for splitting text into manageable chunks.
 - `url_extraction.py`: Contains functions for extracting and filtering URLs from HTML content.
-- `document_storage.py`: Contains functions to save processed documents(can be replaced by vector space).
+- `document_storage.py`: Contains functions to save processed documents (can be replaced by vector space).
 - `main.py`: The main entry point for the application.
 
 
